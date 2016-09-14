@@ -247,6 +247,9 @@ int tls_ssl_error(struct tls *ctx, SSL *ssl_conn, int ssl_ret,
 int tls_conninfo_populate(struct tls *ctx);
 void tls_conninfo_free(struct tls_conninfo *conninfo);
 
+int tls_generate_cookie(SSL *ssl, unsigned char *cookie, unsigned int *cookie_len);
+int tls_verify_cookie(SSL *ssl, unsigned char *cookie, unsigned int cookie_len);
+
 int tls_ocsp_verify_cb(SSL *ssl, void *arg);
 int tls_ocsp_stapling_cb(SSL *ssl, void *arg);
 void tls_ocsp_free(struct tls_ocsp *ctx);

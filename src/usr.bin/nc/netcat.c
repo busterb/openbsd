@@ -354,7 +354,7 @@ main(int argc, char *argv[])
 	} else if (Fflag && Pflag) {
 		if (pledge("stdio inet dns sendfd tty", NULL) == -1)
 			err(1, "pledge");
-	} else if (Fflag) { 
+	} else if (Fflag) {
 		if (pledge("stdio inet dns sendfd", NULL) == -1)
 			err(1, "pledge");
 	} else if (Pflag && usetls) {
@@ -392,8 +392,8 @@ main(int argc, char *argv[])
 		errx(1, "cannot use -z and -l");
 	if (!lflag && kflag)
 		errx(1, "must use -l with -k");
-	if (uflag && usetls)
-		errx(1, "cannot use -c and -u");
+	if (uflag && lflag && kflag && usetls)
+		errx(1, "cannot use -c and -u with -k");
 	if ((family == AF_UNIX) && usetls)
 		errx(1, "cannot use -c and -U");
 	if ((family == AF_UNIX) && Fflag)
@@ -489,6 +489,10 @@ main(int argc, char *argv[])
 			errx(1, "unable to initialize TLS");
 		if ((tls_cfg = tls_config_new()) == NULL)
 			errx(1, "unable to allocate TLS config");
+		if (uflag) {
+			tls_config_set_protocols(tls_cfg,
+			    TLS_PROTOCOL_DTLSv1_0);
+		}
 		if (Rflag && tls_config_set_ca_file(tls_cfg, Rflag) == -1)
 			errx(1, "%s", tls_config_error(tls_cfg));
 		if (Cflag && tls_config_set_cert_file(tls_cfg, Cflag) == -1)
@@ -577,10 +581,23 @@ main(int argc, char *argv[])
 				if (rv < 0)
 					err(1, "connect");
 
+				if ((usetls) &&
+				    (tls_cctx = tls_setup_server(tls_ctx, s, host)))
+					readwrite(s, tls_cctx);
+				if (!usetls)
+					readwrite(s, NULL);
+				if (tls_cctx) {
+					int i;
+
+					do {
+						i = tls_close(tls_cctx);
+					} while (i == TLS_WANT_POLLIN ||
+					    i == TLS_WANT_POLLOUT);
+					tls_free(tls_cctx);
+					tls_cctx = NULL;
+				}
 				if (vflag)
 					report_connect((struct sockaddr *)&z, len, NULL);
-
-				readwrite(s, NULL);
 			} else {
 				len = sizeof(cliaddr);
 				connfd = accept4(s, (struct sockaddr *)&cliaddr,

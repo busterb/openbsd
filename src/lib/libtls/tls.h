@@ -35,6 +35,8 @@ extern "C" {
 #define TLS_PROTOCOL_TLSv1 \
 	(TLS_PROTOCOL_TLSv1_0|TLS_PROTOCOL_TLSv1_1|TLS_PROTOCOL_TLSv1_2)
 
+#define TLS_PROTOCOL_DTLSv1_0	(1 << 16)
+
 #define TLS_PROTOCOLS_ALL TLS_PROTOCOL_TLSv1
 #define TLS_PROTOCOLS_DEFAULT TLS_PROTOCOL_TLSv1_2
 
@@ -150,6 +152,7 @@ int tls_config_set_session_id(struct tls_config *_config,
 int tls_config_set_session_lifetime(struct tls_config *_config, int _lifetime);
 int tls_config_add_ticket_key(struct tls_config *_config, uint32_t _keyrev,
     unsigned char *_key, size_t _keylen);
+int tls_config_is_dtls(struct tls_config *config);
 
 struct tls *tls_client(void);
 struct tls *tls_server(void);

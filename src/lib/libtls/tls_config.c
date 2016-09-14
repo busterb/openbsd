@@ -346,6 +346,8 @@ tls_config_parse_protocols(uint32_t *protocols, const char *protostr)
 			proto = TLS_PROTOCOL_TLSv1_1;
 		else if (strcasecmp(p, "tlsv1.2") == 0)
 			proto = TLS_PROTOCOL_TLSv1_2;
+		else if (strcasecmp(p, "dtls1.0") == 0)
+			proto = TLS_PROTOCOL_DTLSv1_0;
 
 		if (proto == 0) {
 			free(s);
@@ -632,7 +634,7 @@ tls_config_set_ecdhecurve(struct tls_config *config, const char *curve)
 	    strcasecmp(curve, "none") == 0 ||
 	    strcasecmp(curve, "auto") == 0)
 		curve = TLS_ECDHE_CURVES;
-		
+
 	return tls_config_set_ecdhecurves(config, curve);
 }
 
@@ -956,4 +958,10 @@ tls_config_ticket_autorekey(struct tls_config *config)
 	    sizeof(key));
 	config->ticket_autorekey = 1;
 	return (rv);
+}
+
+int
+tls_config_is_dtls(struct tls_config *config)
+{
+	return !!(config->protocols & TLS_PROTOCOL_DTLSv1_0);
 }

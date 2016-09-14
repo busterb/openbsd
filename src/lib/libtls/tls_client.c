@@ -19,7 +19,6 @@
 #include <sys/socket.h>
 
 #include <arpa/inet.h>
-#include <netinet/in.h>
 
 #include <netdb.h>
 #include <stdlib.h>
@@ -98,7 +97,12 @@ tls_connect_servername(struct tls *ctx, const char *host, const char *port,
 	 * 127.0.0.1 or ::1 loopback addresses are always possible.
 	 */
 	memset(&hints, 0, sizeof(hints));
-	hints.ai_socktype = SOCK_STREAM;
+
+	if (tls_config_is_dtls(ctx->config)) {
+		hints.ai_socktype = SOCK_DGRAM;
+	} else {
+		hints.ai_socktype = SOCK_STREAM;
+	}
 
 	/* try as an IPv4 literal */
 	hints.ai_family = AF_INET;
@@ -176,7 +180,13 @@ tls_connect_common(struct tls *ctx, const char *servername)
 		}
 	}
 
-	if ((ctx->ssl_ctx = SSL_CTX_new(SSLv23_client_method())) == NULL) {
+	if (tls_config_is_dtls(ctx->config)) {
+		ctx->ssl_ctx = SSL_CTX_new(DTLSv1_client_method());
+	} else {
+		ctx->ssl_ctx = SSL_CTX_new(TLS_client_method());
+	}
+
+	if (ctx->ssl_ctx == NULL) {
 		tls_set_errorx(ctx, "ssl context failure");
 		goto err;
 	}

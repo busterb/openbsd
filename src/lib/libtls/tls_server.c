@@ -19,6 +19,8 @@
 
 #include <arpa/inet.h>
 
+#include <netinet/in.h>
+
 #include <openssl/ec.h>
 #include <openssl/err.h>
 #include <openssl/ssl.h>
@@ -246,7 +248,13 @@ tls_configure_server_ssl(struct tls *ctx, SSL_CTX **ssl_ctx,
 {
 	SSL_CTX_free(*ssl_ctx);
 
-	if ((*ssl_ctx = SSL_CTX_new(SSLv23_server_method())) == NULL) {
+	if (tls_config_is_dtls(ctx->config)) {
+		*ssl_ctx = SSL_CTX_new(DTLSv1_server_method());
+	} else {
+		*ssl_ctx = SSL_CTX_new(TLS_server_method());
+	}
+
+	if (*ssl_ctx == NULL) {
 		tls_set_errorx(ctx, "ssl context failure");
 		goto err;
 	}
@@ -421,6 +429,12 @@ tls_accept_fds(struct tls *ctx, struct tls **cctx, int fd_read, int fd_write)
 	if ((conn_ctx = tls_accept_common(ctx)) == NULL)
 		goto err;
 
+	if (tls_config_is_dtls(ctx->config)) {
+		BIO *rbio = BIO_new_dgram(fd_read, BIO_NOCLOSE);
+		BIO *wbio = BIO_new_dgram(fd_write, BIO_NOCLOSE);
+		SSL_set_bio(conn_ctx->ssl_conn, rbio, wbio);
+	}
+
 	if (SSL_set_rfd(conn_ctx->ssl_conn, fd_read) != 1 ||
 	    SSL_set_wfd(conn_ctx->ssl_conn, fd_write) != 1) {
 		tls_set_errorx(ctx, "ssl file descriptor failure");
@@ -473,9 +487,22 @@ tls_handshake_server(struct tls *ctx)
 	ctx->state |= TLS_SSL_NEEDS_SHUTDOWN;
 
 	ERR_clear_error();
-	if ((ssl_ret = SSL_accept(ctx->ssl_conn)) != 1) {
-		rv = tls_ssl_error(ctx, ctx->ssl_conn, ssl_ret, "handshake");
-		goto err;
+	if (tls_config_is_dtls(ctx->config)) {
+		union {
+			struct sockaddr_in s4;
+			struct sockaddr_in6 s6;
+		} client_addr = { .s6 = {} };
+		if ((ssl_ret = DTLSv1_listen(ctx->ssl_conn, &client_addr)) != 1) {
+			rv = tls_ssl_error(ctx, ctx->ssl_conn, ssl_ret,
+			    "handshake");
+			goto err;
+		}
+	} else {
+		if ((ssl_ret = SSL_accept(ctx->ssl_conn)) != 1) {
+			rv = tls_ssl_error(ctx, ctx->ssl_conn, ssl_ret,
+			    "handshake");
+			goto err;
+		}
 	}
 
 	ctx->state |= TLS_HANDSHAKE_COMPLETE;
